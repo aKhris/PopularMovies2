@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name" translatable="false">PopularMovies</string>
+    <string name="sort_order">Sort order</string>
+    <string name="vote">Vote:</string>
+    <string name="release_date">Release date:</string>
+    <string name="movie_poster">movie_poster</string>
+    <!-- MENU STRINGS -->
+    <string name="menu_top_rated">Top rated</string>
+    <string name="menu_popular">Popular</string>
+    <string name="menu_favorites">Favorites</string>
+    <string name="label_videos">Videos:</string>
+    <string name="label_reviews">Reviews:</string>
+    <string name="detail_activity_title">Movie details</string>
+    <string name="press_to_make_this_movie_favorite">Press to make this movie favorite.</string>
+    <string name="label_favorites">Favorites:</string>
+
+    <!-- IMAGE SIZES -->
+    <string name="image_size_w92" translatable="false">w92</string>
+    <string name="image_size_w154" translatable="false">w154</string>
+    <string name="image_size_w185" translatable="false">w185</string>
+    <string name="image_size_w342" translatable="false">w342</string>
+    <string name="image_size_w500" translatable="false">w500</string>
+    <string name="image_size_w780" translatable="false">w780</string>
+    <string name="image_size_original" translatable="false">original</string>
+
+    <string name="image_size_main" translatable="false">@string/image_size_w185</string>
+    <string name="image_size_detail" translatable="false">@string/image_size_w500</string>
+
+    <string name="check_internet">Please check the Internet connection!</string>
+</resources>

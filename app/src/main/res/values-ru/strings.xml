@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="sort_order">Порядок сортировки</string>
+    <string name="vote">Оценка:</string>
+    <string name="release_date">Дата выхода:</string>
+    <string name="movie_poster">Обложка фильма</string>
+    <!-- MENU STRINGS -->
+    <string name="menu_top_rated">По рейтингу</string>
+    <string name="menu_popular">Популярные</string>
+    <string name="menu_favorites">Избранное</string>
+    <string name="label_videos">Видео:</string>
+    <string name="label_reviews">Отзывы:</string>
+    <string name="detail_activity_title">Подробности</string>
+    <string name="label_favorites">В избранном:</string>
+    <string name="press_to_make_this_movie_favorite">Нажмите чтобы добавить этот фильм в избранное</string>
+    <string name="check_internet">" Пожалуйста, проверьте интернет соединение!"</string>
+</resources>
