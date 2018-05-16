@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Parcelable;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.LoaderManager;
@@ -16,6 +17,7 @@ import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.example.anatoly.popularmovies.Adapters.OnItemClickListener;
@@ -40,12 +42,17 @@ public class DetailActivity extends AppCompatActivity
         implements View.OnClickListener,
         OnItemClickListener
 {
+    private final static String ARG_SCROLL_POSITION = "scroll_position";
+    private final static String ARG_VIDEOS_RV_FIRST_VISIBLE = "videos_rv_first_visible";
+    private final static String ARG_REVIEWS_RV_FIRST_VISIBLE = "reviews_rv_first_visible";
 
     private final static int FAVORITE_LOADER_ID = 12314;
     private final static int HTTP_VIDEO_LOADER_ID = 12315;
     private final static int HTTP_REVIEWS_LOADER_ID = 12316;
 
     private Movie movie;
+
+    private ScrollView scrollView;
     private ImageView favoriteImageView;
 
     //Videos block
@@ -167,6 +174,7 @@ public class DetailActivity extends AppCompatActivity
         TextView voteAverageTextView = findViewById(R.id.tv_details_vote_average_text);
         TextView releaseDateTextView = findViewById(R.id.tv_details_release_date_text);
 
+        scrollView = findViewById(R.id.sv_details_scroll);
         favoriteImageView = findViewById(R.id.iv_favorite_star);
         videosLabelTextView = findViewById(R.id.tv_label_videos);
         reviewsLabelTextView = findViewById(R.id.tv_label_reviews);
@@ -180,6 +188,29 @@ public class DetailActivity extends AppCompatActivity
         reviewsRecyclerView.setHasFixedSize(true);
         videosRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
         reviewsRecyclerView.setLayoutManager(new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false));
+
+        //Setting up saved instances if available
+        if(savedInstanceState!=null) {
+            if(savedInstanceState.containsKey(ARG_SCROLL_POSITION)){
+                final int[] scrollCoordinates = savedInstanceState.getIntArray(ARG_SCROLL_POSITION);
+                if (scrollCoordinates != null) {
+                    scrollView.post(new Runnable() {
+                        public void run() {
+                            scrollView.scrollTo(scrollCoordinates[0], scrollCoordinates[1]);
+                        }
+                    });
+                }
+            }
+            if(savedInstanceState.containsKey(ARG_VIDEOS_RV_FIRST_VISIBLE)){
+                int videosPos = savedInstanceState.getInt(ARG_VIDEOS_RV_FIRST_VISIBLE);
+                videosRecyclerView.getLayoutManager().scrollToPosition(videosPos);
+            }
+            if(savedInstanceState.containsKey(ARG_REVIEWS_RV_FIRST_VISIBLE)){
+                int reviewsPos = savedInstanceState.getInt(ARG_REVIEWS_RV_FIRST_VISIBLE);
+                reviewsRecyclerView.getLayoutManager().scrollToPosition(reviewsPos);
+            }
+        }
+
 
         favoriteImageView.setOnClickListener(this);
 
@@ -302,5 +333,15 @@ public class DetailActivity extends AppCompatActivity
                 startActivity(createShareVideoIntent(tag));
                 break;
         }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putIntArray(ARG_SCROLL_POSITION, new int[]{scrollView.getScrollX(), scrollView.getScrollY()});
+        outState.putInt(ARG_VIDEOS_RV_FIRST_VISIBLE,
+                ((LinearLayoutManager)(videosRecyclerView.getLayoutManager())).findFirstCompletelyVisibleItemPosition());
+        outState.putInt(ARG_REVIEWS_RV_FIRST_VISIBLE,
+                ((LinearLayoutManager)(reviewsRecyclerView.getLayoutManager())).findFirstCompletelyVisibleItemPosition());
+        super.onSaveInstanceState(outState);
     }
 }

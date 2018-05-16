@@ -2,13 +2,13 @@ package com.example.anatoly.popularmovies;
 
 import android.content.Intent;
 import android.database.Cursor;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.Menu;
@@ -31,12 +31,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
         implements AdapterView.OnItemSelectedListener,
+        LoaderManager.LoaderCallbacks,
         OnItemClickListener
         {
 
@@ -44,6 +44,7 @@ public class MainActivity extends AppCompatActivity
     RecyclerView moviesPicsRV;
     ProgressBar loadingMoviesPB;
     List<Movie> movies;
+    MoviesRecyclerAdapter adapter;
 
     //Variable to store String value of the image size (which is in strings.xml file)
     //to make different image sizes on different screen sizes
@@ -51,120 +52,116 @@ public class MainActivity extends AppCompatActivity
 
     //Key value for passing url in a HTTPTaskLoader bundle
     //Also used in DetailActivity
-    public final static String BUNDLE_ARG_URL = "arg_url";
+    public final static String BUNDLE_ARG_URL = "url";
 
     //Key value for storing selected menu item (popular/top/favorites)
     //and load it in onCreate;
-    private final static String BUNDLE_ARG_MENU_POSITION= "arg_menu_position";
+    private final static String BUNDLE_ARG_MENU_POSITION= "menu_position";
+    private final static String BUNDLE_ARG_FIRST_VISIBLE= "first_visible";
+    private final static String BUNDLE_ARG_WHAT_TO_LOAD= "what_to_load";
 
     private int menuPosition = 0;
 
-    //Loaders ids
-    private final static int FAVORITES_LOADER_ID = 30942;
-    private final static int HTTPS_LOADER_ID = 30943;
+    // What to load in a single loader:
+    private final static int LOAD_TOPRATED = 10;
+    private final static int LOAD_POPULAR = 11;
+    private final static int LOAD_FAVORITES = 12;
 
+    //Loader id
+    private final static int LOADER_ALL_IN_1_ID = 30945;
 
-
-
-    //Callbacks for CursorLoader
-    //Are used to load list of favorite movies from database
-    private LoaderManager.LoaderCallbacks<Cursor> favoritesCallbacks = new LoaderManager.LoaderCallbacks<Cursor>() {
-        @NonNull
-        @Override
-        public Loader<Cursor> onCreateLoader(int id, @Nullable Bundle args) {
-            if(id!=FAVORITES_LOADER_ID){
-                throw new UnsupportedOperationException("Wrong loader id: "+id);
+            //Using a single loader's callbacks
+            //it comes to work much better than using two different callbacks for http and cursor loaders
+            @NonNull
+            @Override
+            public Loader onCreateLoader(int id, @Nullable Bundle args) {
+                if(args==null){throw new UnsupportedOperationException("args must not be null");}
+                int whatToLoad = args.getInt(BUNDLE_ARG_WHAT_TO_LOAD);
+                switch (whatToLoad){
+                    case LOAD_FAVORITES:
+                        return new CursorLoader(
+                                getApplicationContext(),
+                                FavoriteContract.FavoriteEntry.CONTENT_URI,
+                                null,
+                                null,
+                                null,
+                                null);
+                    case LOAD_TOPRATED:
+                            return new HTTPTaskLoader(getApplicationContext(), NetworkUtils.buildMoviesUrl(NetworkUtils.SORT_ORDER.top_rated));
+                    case LOAD_POPULAR:
+                            return new HTTPTaskLoader(getApplicationContext(), NetworkUtils.buildMoviesUrl(NetworkUtils.SORT_ORDER.popular));
+                        default:
+                            throw new UnsupportedOperationException("Wrong loader id: "+id);
+                }
             }
-            return new CursorLoader(
-                    getApplicationContext(),
-                    FavoriteContract.FavoriteEntry.CONTENT_URI,
-                    null,
-                    null,
-                    null,
-                    null
-            );
-        }
-
-        @Override
-        public void onLoadFinished(@NonNull Loader<Cursor> loader, Cursor data) {
-            movies = new ArrayList<>();
-            while(data.moveToNext()){
-                Movie movie = new Movie();
-                int idIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_MOVIE_ID);
-                int titleIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_MOVIE_TITLE);
-                int posterPathIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_POSTER_PATH);
-                int voteavrIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_VOTE_AVR);
-                int overviewIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_OVERVIEW);
-                int releaseIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_RELEASE_DATE);
 
 
-                movie.setPosterPath(data.getString(posterPathIndex));
-                movie.setId(data.getInt(idIndex));
-                movie.setOriginalTitle(data.getString(titleIndex));
-                movie.setVoteAvr(data.getDouble(voteavrIndex));
-                movie.setOverview(data.getString(overviewIndex));
-                movie.setReleaseDate(data.getString(releaseIndex));
+            @Override
+            public void onLoadFinished(@NonNull Loader loader, Object loadedObject) {
+                hideProgress();
+                movies = new ArrayList<>();
+                if(loadedObject instanceof Cursor){
+                    Cursor data = (Cursor) loadedObject;
 
-                movies.add(movie);
-            }
-            MoviesRecyclerAdapter adapter = new MoviesRecyclerAdapter(movies, MainActivity.this, imageSize);
-            moviesPicsRV.setAdapter(adapter);
-            hideProgress();
-        }
+                    //Resetting the position of a cursor
+                    //otherwise if it returns previously used cursor, data.moveToNext() will return false
+                    //because it was set to the last position previously.
+                    data.moveToPosition(-1);
+                    while(data.moveToNext()){
+                        Movie movie = new Movie();
+                        int idIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_MOVIE_ID);
+                        int titleIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_MOVIE_TITLE);
+                        int posterPathIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_POSTER_PATH);
+                        int voteavrIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_VOTE_AVR);
+                        int overviewIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_OVERVIEW);
+                        int releaseIndex = data.getColumnIndex(FavoriteContract.FavoriteEntry.COLUMN_RELEASE_DATE);
 
-        @Override
-        public void onLoaderReset(@NonNull Loader<Cursor> loader) {
 
-        }
-    };
+                        movie.setPosterPath(data.getString(posterPathIndex));
+                        movie.setId(data.getInt(idIndex));
+                        movie.setOriginalTitle(data.getString(titleIndex));
+                        movie.setVoteAvr(data.getDouble(voteavrIndex));
+                        movie.setOverview(data.getString(overviewIndex));
+                        movie.setReleaseDate(data.getString(releaseIndex));
 
-    //Callbacks for HTTPTaskLoader
-    //Are used to load data from Internet
-    private LoaderManager.LoaderCallbacks<String> httpCallbacks = new LoaderManager.LoaderCallbacks<String>() {
-        @NonNull
-        @Override
-        public Loader<String> onCreateLoader(int id, @Nullable Bundle args) {
-            if(args==null || !args.containsKey(BUNDLE_ARG_URL)){
-                throw new UnsupportedOperationException("Must pass URL to HTTPTaskLoader!");
-            }
-            return new HTTPTaskLoader(getApplicationContext(), (URL) args.getSerializable(BUNDLE_ARG_URL));
-        }
+                        movies.add(movie);
+                    }
+                } else if (loadedObject instanceof String){
+                    String result = (String) loadedObject;
+                    if(result.equals("")){return;}
+                    JSONArray array = JSONUtils.parseResults(result);
+                    if(array == null || array.length()==0) {return;}
+                    for (int i = 0; i < array.length(); i++) {
+                        try {
+                            JSONObject jsonMovie = array.getJSONObject(i);
+                            movies.add(JSONUtils.parseMovie(jsonMovie));
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
 
-        @Override
-        public void onLoadFinished(@NonNull Loader<String> loader, String result) {
-            hideProgress();
-            if(result==null || result.equals("")){return;}
-            movies = new ArrayList<>();
-            JSONArray array = JSONUtils.parseResults(result);
-            if(array == null || array.length()==0) {return;}
-            for (int i = 0; i < array.length(); i++) {
-                try {
-                    JSONObject jsonMovie = array.getJSONObject(i);
-                    movies.add(JSONUtils.parseMovie(jsonMovie));
-                } catch (JSONException e) {
-                    e.printStackTrace();
+                    }
+                }
+
+                if(adapter == null){
+                    adapter = new MoviesRecyclerAdapter(movies, MainActivity.this, imageSize);
+                    moviesPicsRV.setAdapter(adapter);
+                } else {
+                    adapter.swapMovies(movies);
                 }
 
             }
-            MoviesRecyclerAdapter adapter = new MoviesRecyclerAdapter(movies, MainActivity.this, imageSize);
-            moviesPicsRV.setAdapter(adapter);
-        }
 
-        @Override
-        public void onLoaderReset(@NonNull Loader<String> loader) {
+            @Override
+            public void onLoaderReset(@NonNull Loader loader) {
 
-        }
-    };
-
+            }
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         imageSize = getString(R.string.image_size_main);
-        if(savedInstanceState!=null){
-            menuPosition = savedInstanceState.getInt(BUNDLE_ARG_MENU_POSITION,0);
-        }
+
 
         setContentView(R.layout.activity_main);
 
@@ -176,8 +173,8 @@ public class MainActivity extends AppCompatActivity
         //Spancount is stored in integers.xml file
         //to make 2 columns in portrait mode and 3 columns in landscape mode
         int spanCount = getResources().getInteger(R.integer.columnsCount);
-        GridLayoutManager gridManager = new GridLayoutManager(this, spanCount);
-        moviesPicsRV.setLayoutManager(gridManager);
+        moviesPicsRV.setLayoutManager(new GridLayoutManager(this, spanCount));
+        getSupportLoaderManager().initLoader(LOADER_ALL_IN_1_ID, getBundle(LOAD_TOPRATED), this);
     }
 
     /**
@@ -190,12 +187,12 @@ public class MainActivity extends AppCompatActivity
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.main, menu);
         MenuItem item = menu.findItem(R.id.menu_spinner);
-        Spinner spinner = (Spinner) item.getActionView();
+        Spinner menuSpinner = (Spinner) item.getActionView();
         String[] orderTypes = getResources().getStringArray(R.array.order_types);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.menu_spinner_item_layout,orderTypes);
-        spinner.setAdapter(adapter);
-        spinner.setOnItemSelectedListener(this);
-        spinner.setSelection(menuPosition);
+        menuSpinner.setAdapter(adapter);
+        menuSpinner.setOnItemSelectedListener(this);
+//        menuSpinner.setSelection(menuPosition);
         return super.onCreateOptionsMenu(menu);
     }
 
@@ -204,10 +201,21 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putInt(BUNDLE_ARG_MENU_POSITION, menuPosition);
+        outState.putInt(BUNDLE_ARG_FIRST_VISIBLE,((GridLayoutManager) moviesPicsRV.getLayoutManager()).findFirstCompletelyVisibleItemPosition());
         super.onSaveInstanceState(outState);
     }
 
-    //Processing clicks on menu items
+            @Override
+            protected void onRestoreInstanceState(Bundle savedInstanceState) {
+                super.onRestoreInstanceState(savedInstanceState);
+                if(savedInstanceState!=null){
+                    menuPosition = savedInstanceState.getInt(BUNDLE_ARG_MENU_POSITION,0);
+                    int firstItemPosition = savedInstanceState.getInt(BUNDLE_ARG_FIRST_VISIBLE);
+                    moviesPicsRV.getLayoutManager().scrollToPosition(firstItemPosition);
+                }
+            }
+
+            //Processing clicks on menu items
     @Override
     public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
         menuPosition = position;
@@ -218,24 +226,20 @@ public class MainActivity extends AppCompatActivity
         }
 
         //Calling loaders depending of what we are going to load
+        int whatToLoad=0;
         switch (position){
             case 0: //TOP RATED
-                Bundle args = new Bundle();
-                args.putSerializable(BUNDLE_ARG_URL, NetworkUtils.buildMoviesUrl(NetworkUtils.SORT_ORDER.top_rated));
-                getSupportLoaderManager().restartLoader(HTTPS_LOADER_ID, args, httpCallbacks);
-                showProgress();
+                whatToLoad = LOAD_TOPRATED;
                 break;
             case 1: //POPULAR
-                Bundle args2 = new Bundle();
-                args2.putSerializable(BUNDLE_ARG_URL, NetworkUtils.buildMoviesUrl(NetworkUtils.SORT_ORDER.popular));
-                getSupportLoaderManager().restartLoader(HTTPS_LOADER_ID, args2, httpCallbacks);
-                showProgress();
+                whatToLoad = LOAD_POPULAR;
                 break;
             case 2: //FAVORITES
-                getSupportLoaderManager().restartLoader(FAVORITES_LOADER_ID, null,favoritesCallbacks);
-                showProgress();
+                whatToLoad = LOAD_FAVORITES;
                 break;
         }
+        getSupportLoaderManager().restartLoader(LOADER_ALL_IN_1_ID, getBundle(whatToLoad), this);
+        showProgress();
     }
 
     @Override
@@ -253,6 +257,12 @@ public class MainActivity extends AppCompatActivity
         moviesPicsRV.setVisibility(View.VISIBLE);
     }
 
+    private Bundle getBundle (int whatToLoad){
+        Bundle args = new Bundle();
+        args.putInt(BUNDLE_ARG_WHAT_TO_LOAD, whatToLoad);
+        return args;
+    }
+
 
     //Processing clicking on movies images
     @Override
@@ -261,4 +271,4 @@ public class MainActivity extends AppCompatActivity
         intent.putExtra(Movie.TAG, movies.get(position));
         startActivity(intent);
     }
-}
+    }

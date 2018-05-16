@@ -27,6 +27,11 @@ public class MoviesRecyclerAdapter extends RecyclerView.Adapter<MoviesRecyclerAd
         this.imageSize = imageSize;
     }
 
+    public void swapMovies(List<Movie> movies){
+        this.movies = movies;
+        notifyDataSetChanged();
+    }
+
     @Override
     public int getItemCount() {
         return movies.size();
