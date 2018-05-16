@@ -192,7 +192,6 @@ public class MainActivity extends AppCompatActivity
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.menu_spinner_item_layout,orderTypes);
         menuSpinner.setAdapter(adapter);
         menuSpinner.setOnItemSelectedListener(this);
-//        menuSpinner.setSelection(menuPosition);
         return super.onCreateOptionsMenu(menu);
     }
 
